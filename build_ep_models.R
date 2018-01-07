@@ -2,20 +2,19 @@
 
 # Access tidyverse:
 library(tidyverse)
+library(magrittr)
 
 # Load and stack the play-by-play data:
-pbp_data <- rbind(readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2009.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2010.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2011.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2012.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2013.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2014.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2015.csv"),
-                  readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2016.csv"))
+pbp_data <-   map_dfr(c(2009:2016), function(x) {
+  suppressMessages(readr::read_csv(paste("https://raw.github.com/ryurko/nflscrapR-data/master/data/season_play_by_play/pbp_",
+                                         x, ".csv", sep = "")))
+})
 
 # Remove error game from 2011 that is coded incorrectly in raw JSON data:
 
 pbp_data <- pbp_data %>% filter(GameID != "2011121101")
+nrow(pbp_data)
+# 362263
 
 # Define a function that takes in a play-by-play data set and returns
 # what the type of next score is and the drive number only within a half:
@@ -120,11 +119,11 @@ find_game_next_score_half <- function(pbp_dataset) {
 }
 
 # Apply to each game (ignore the warning messages here):
-pbp_next_score_half <- lapply(unique(pbp_data$GameID), FUN = function(x){
-  find_game_next_score_half(filter(pbp_data, GameID == x))}) %>% bind_rows()
+pbp_next_score_half <- map_dfr(unique(pbp_data$GameID), 
+                               function(x) find_game_next_score_half(filter(pbp_data, GameID == x)))
 
 # Join to the pbp_data:
-pbp_data_next_score <- cbind(pbp_data, pbp_next_score_half)
+pbp_data_next_score <- bind_cols(pbp_data, pbp_next_score_half)
 
 # Reference level should be No_Score:
 
@@ -157,51 +156,38 @@ pbp_ep_model_data <- pbp_data_next_score %>% filter(Next_Score_Half %in% c("Opp_
                                                       is.na(TwoPointConv) &
                                                       is.na(ExPointResult) &
                                                       !is.na(down))
+nrow(pbp_ep_model_data)
+# 304896
 
-# Drop the unused levels:
-pbp_ep_model_data$Next_Score_Half <- factor(pbp_ep_model_data$Next_Score_Half,
-                                            levels = c("No_Score","Opp_Field_Goal",
-                                                       "Opp_Safety","Opp_Touchdown",
-                                                       "Field_Goal","Safety","Touchdown"))
-
-# Create a variable that is time remaining until end of half and game:
-pbp_ep_model_data$TimeSecs_Remaining <- ifelse(pbp_ep_model_data$qtr %in% c(1,2),
-                                               pbp_ep_model_data$TimeSecs - 1800,
-                                               ifelse(pbp_ep_model_data$qtr == 5,
-                                                      pbp_ep_model_data$TimeSecs + 900,
-                                                      pbp_ep_model_data$TimeSecs))
-
-# Create log_ydstogo:
-pbp_ep_model_data <- pbp_ep_model_data %>% mutate(log_ydstogo = log(ydstogo))
-
-# Create Under_TwoMinute_Warning indicator
-pbp_ep_model_data$Under_TwoMinute_Warning <- ifelse(pbp_ep_model_data$TimeSecs_Remaining < 120,1,0)
-
-# Changing down into a factor variable: 
-pbp_ep_model_data$down <- factor(pbp_ep_model_data$down)
-
-# Calculate the drive difference between the score drive and the play drive:
-pbp_ep_model_data <- pbp_ep_model_data %>% mutate(Drive_Score_Dist = Drive_Score_Half - Drive)
-
-# Generate the weights
-
-# Create a weight column based on difference in drives between play and next score:
-pbp_ep_model_data <- pbp_ep_model_data %>% 
-  mutate(Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / (max(Drive_Score_Dist) - min(Drive_Score_Dist)))
-
-# Create a weight column based on score differential:
-pbp_ep_model_data <- pbp_ep_model_data %>% 
-  mutate(ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / (max(abs(ScoreDiff)) - min(abs(ScoreDiff))))
-
-# Add these weights together and scale again:
-pbp_ep_model_data <- pbp_ep_model_data %>% 
-  mutate(Total_W = Drive_Score_Dist_W + ScoreDiff_W,
+# Now adjust and create the model variables:
+pbp_ep_model_data <- pbp_ep_model_data %>%
+  # Drop the unused levels:
+  mutate(Next_Score_Half = factor(Next_Score_Half,
+                                  levels = c("No_Score","Opp_Field_Goal",
+                                              "Opp_Safety","Opp_Touchdown",
+                                              "Field_Goal","Safety","Touchdown")),
+         # Create a variable that is time remaining until end of half:
+         TimeSecs_Remaining = ifelse(qtr %in% c(1,2), TimeSecs - 1800,
+                                      ifelse(qtr == 5, TimeSecs + 900, TimeSecs)),
+         log_ydstogo = log(ydstogo),
+         Under_TwoMinute_Warning = ifelse(TimeSecs_Remaining < 120,1,0),
+         # Changing down into a factor variable: 
+         down = factor(down),
+         # Calculate the drive difference between the score drive and the play drive:
+         Drive_Score_Dist = Drive_Score_Half - Drive,
+         # Create a weight column based on difference in drives between play and next score:
+         Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+         # Create a weight column based on score differential:
+         ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / (max(abs(ScoreDiff)) - min(abs(ScoreDiff))),
+         # Add these weights together and scale again:
+         Total_W = Drive_Score_Dist_W + ScoreDiff_W,
          Total_W_Scaled = (Total_W - min(Total_W)) / (max(Total_W) - min(Total_W)))
 
 # Fit the expected points model:
 
-ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + down + log_ydstogo + GoalToGo + log_ydstogo*down + yrdline100*down + GoalToGo*log_ydstogo + Under_TwoMinute_Warning, 
-                           data=pbp_ep_model_data,weights = Total_W_Scaled,maxit=300)
+ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + down + log_ydstogo + 
+                           GoalToGo + log_ydstogo*down + yrdline100*down + GoalToGo*log_ydstogo + Under_TwoMinute_Warning, 
+                           data = pbp_ep_model_data, weights = Total_W_Scaled, maxit = 300)
 
 # Save the model (commented out due to file size limit)
 # save(ep_model, file="ep_model.RData")
@@ -215,31 +201,27 @@ ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + d
 
 build_LOSO_EP_Model <- function(holdout_season, data = pbp_ep_model_data){
   # Filter out the holdout season:
-  train <- filter(data, Season != holdout_season)
+  train <- data %>%
+    filter(Season != holdout_season)
   
   # Generate the weights
   
   # Create a weight column based on difference in drives between play and next score:
   train <- train %>% 
-    mutate(Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / (max(Drive_Score_Dist) - min(Drive_Score_Dist)))
-  
-  # Create a weight column based on score differential:
-  train <- train %>% 
-    mutate(ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / (max(abs(ScoreDiff)) - min(abs(ScoreDiff))))
-  
-  # Create a weight column based on season difference from holdout season:
-  train <- train %>%
-    mutate(Season_Diff = abs(Season - holdout_season),
-           Season_Diff_W = (max(Season_Diff) - Season_Diff) / (max(Season_Diff) - min(Season_Diff)))
-  
-  # Add the three together and scale again:
-  train <- train %>% 
-    mutate(Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W + Season_Diff_W,
+    mutate(Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+           # Create a weight column based on score differential:
+           ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / (max(abs(ScoreDiff)) - min(abs(ScoreDiff))),
+           # Create a weight column based on season difference from holdout season:
+           Season_Diff = abs(Season - holdout_season),
+           Season_Diff_W = (max(Season_Diff) - Season_Diff) / (max(Season_Diff) - min(Season_Diff)),
+           # Add the three together and scale again:
+           Total_Season_W = Drive_Score_Dist_W + ScoreDiff_W + Season_Diff_W,
            Total_Season_W_Scaled = (Total_Season_W - min(Total_Season_W)) / (max(Total_Season_W) - min(Total_Season_W)))
   
   # Build model:
-  ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + down + log_ydstogo + GoalToGo + log_ydstogo*down + yrdline100*down + GoalToGo*log_ydstogo + Under_TwoMinute_Warning, 
-                             data=train,weights = Total_Season_W_Scaled,maxit=300)
+  ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + down + log_ydstogo + 
+                             GoalToGo + log_ydstogo*down + yrdline100*down + GoalToGo*log_ydstogo + Under_TwoMinute_Warning, 
+                             data = train, weights = Total_Season_W_Scaled, maxit = 300)
   
   # Return
   return(ep_model)
@@ -255,7 +237,6 @@ ep_model_13 <- build_LOSO_EP_Model(2013)
 ep_model_14 <- build_LOSO_EP_Model(2014)
 ep_model_15 <- build_LOSO_EP_Model(2015)
 ep_model_16 <- build_LOSO_EP_Model(2016)
-ep_model_17 <- build_LOSO_EP_Model(2017)
 
 # Code to save the models is commented out because of the push limit:
 # save(ep_model_09, file="ep_model_09.RData")
@@ -266,17 +247,17 @@ ep_model_17 <- build_LOSO_EP_Model(2017)
 # save(ep_model_14, file="ep_model_14.RData")
 # save(ep_model_15, file="ep_model_15.RData")
 # save(ep_model_16, file="ep_model_16.RData")
-# save(ep_model_17, file="ep_model_17.RData")
 
 # ----------------------------------------------------------------------------
 
 # Filter the pbp_data_next_score dataset to the rows needed for the field goal model:
 
-fg_data <- filter(pbp_data_next_score,
-                  PlayType %in% c("Field Goal","Extra Point","Run") & (!is.na(ExPointResult) | !is.na(FieldGoalResult)))
+fg_data <-  pbp_data_next_score %>% 
+  filter(PlayType %in% c("Field Goal","Extra Point","Run") & (!is.na(ExPointResult) | !is.na(FieldGoalResult)))
+# 16906
 
 # Fit the field goal model:
-fg_model <- mgcv::bam(sp ~ s(yrdline100),data=fg_data,family="binomial")
+fg_model <- mgcv::bam(sp ~ s(yrdline100), data = fg_data, family = "binomial")
 
 # Save the model (commented out due to file size limit)
 # save(fg_model, file="fg_model.RData")
@@ -290,7 +271,8 @@ fg_model <- mgcv::bam(sp ~ s(yrdline100),data=fg_data,family="binomial")
 
 build_LOSO_FG_Model <- function(holdout_season, data = fg_data){
   # Filter out the holdout season and down to the :
-  train <- filter(data, Season != holdout_season)
+  train <- data %>%
+    filter(Season != holdout_season)
   
   # Build model:
   fg_model <- mgcv::bam(sp ~ s(yrdline100),data=train,family="binomial")
@@ -309,7 +291,6 @@ fg_model_13 <- build_LOSO_FG_Model(2013)
 fg_model_14 <- build_LOSO_FG_Model(2014)
 fg_model_15 <- build_LOSO_FG_Model(2015)
 fg_model_16 <- build_LOSO_FG_Model(2016)
-fg_model_17 <- build_LOSO_FG_Model(2017)
 
 # Code to save the models is commented out because of the push limit:
 # save(fg_model_09, file="fg_model_09.RData")
@@ -320,7 +301,6 @@ fg_model_17 <- build_LOSO_FG_Model(2017)
 # save(fg_model_14, file="fg_model_14.RData")
 # save(fg_model_15, file="fg_model_15.RData")
 # save(fg_model_16, file="fg_model_16.RData")
-# save(fg_model_17, file="fg_model_17.RData")
 
 
 

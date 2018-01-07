@@ -186,7 +186,7 @@ ggplot(next_score_chart_df,aes(Next_Score_Half)) + geom_bar(aes(fill=Who,alpha=a
   scale_fill_manual(values=alpha(c("red","blue","white")),
                     guide = guide_legend(title = NULL)) + 
   scale_alpha_continuous(guide=FALSE) + theme_bw() + scale_x_discrete(labels=c("Touchdown"="Touchdown (7)",
-                                                                               "Field Goal"= "Field Goal (3)",
+                                                                               "Field_Goal"= "Field Goal (3)",
                                                                                "Safety"="Safety (2)",
                                                                                "No_Score"="No Score (0)",
                                                                                "Opp_Safety"="-Safety (-2)",
@@ -194,7 +194,43 @@ ggplot(next_score_chart_df,aes(Next_Score_Half)) + geom_bar(aes(fill=Who,alpha=a
                                                                                "Opp_Touchdown"="-Touchdown (-7)")) + 
   ylab("Number of Plays") + xlab("Type of Next Score") +
   labs(title="Type of Next Score for All Plays from 2009-16", subtitle= "(with respect to possession team)") + 
-  theme(plot.title = element_text(hjust = 0.5),plot.subtitle = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5,size=20),plot.subtitle = element_text(hjust = 0.5,size=16),
+        axis.text.x = element_text(size=16), axis.text.y = element_text(size=16),
+        axis.title.x = element_text(size=16), axis.title.y = element_text(size=16),
+        legend.text = element_text(size=16))
+
+
+next_score_chart_df$Next_Score_Half <- factor(next_score_chart_df$Next_Score_Half,
+                                              levels = c("Opp_Touchdown","-Six","-Five",
+                                                         "-Four","Opp_Field_Goal","Opp_Safety","-One",
+                                                         "No_Score","One","Safety","Field_Goal",
+                                                         "Four","Five","Six","Touchdown"))
+
+ggplot(next_score_chart_df,aes(Next_Score_Half)) + geom_bar(aes(fill=Who,alpha=abs(Next_Score_Points_Half)),color="black") + coord_flip() +
+  scale_fill_manual(values=alpha(c("red","blue","white")),
+                    guide = guide_legend(title = NULL)) + 
+  scale_alpha_continuous(guide=FALSE) + theme_bw() + scale_x_discrete(labels=c("Touchdown"="Touchdown (7)",
+                                                                                "Six" = "",
+                                                                                 "Five" = "",
+                                                                                 "Four" = "",
+                                                                               "Field_Goal"= "Field Goal (3)",
+                                                                               "Safety"="Safety (2)",
+                                                                              "One" = "",
+                                                                               "No_Score"="No Score (0)",
+                                                                               "-One" = "",
+                                                                               "Opp_Safety"="-Safety (-2)",
+                                                                               "Opp_Field_Goal"="-Field Goal (-3)",
+                                                                               "-Four" = "",
+                                                                               "-Five" = "",
+                                                                               "-Six" = "",
+                                                                               "Opp_Touchdown"="-Touchdown (-7)"),
+                                                                      drop=FALSE) + 
+  ylab("Number of Plays") + xlab("Type of Next Score") +
+  labs(title="Type of Next Score for All Plays from 2009-16", subtitle= "(with respect to possession team)") + 
+  theme(plot.title = element_text(hjust = 0.5,size=20),plot.subtitle = element_text(hjust = 0.5,size=16),
+        axis.text.x = element_text(size=16), axis.text.y = element_text(size=16),
+        axis.title.x = element_text(size=16), axis.title.y = element_text(size=16),
+        legend.text = element_text(size=16))
 
 
 # Regression residual diagnostics:
