@@ -1,18 +1,21 @@
 # File for building EP models (and their corresponding FG models)
 
 # Access tidyverse:
+# install.packages("tidyverse")
 library(tidyverse)
-library(magrittr)
 
-# Load and stack the play-by-play data:
-pbp_data <-   map_dfr(c(2009:2016), function(x) {
-  suppressMessages(readr::read_csv(paste("https://raw.github.com/ryurko/nflscrapR-data/master/data/season_play_by_play/pbp_",
-                                         x, ".csv", sep = "")))
-})
+# Access nflWAR:
+# install.packages("devtools")
+# devtools::install.packages("ryurko/nflWAR")
+
+library(nflWAR)
+
+# Load data from 2009 to 2016 from the nflscrapR-data repository:
+pbp_data <- get_pbp_data(2009:2016)
 
 # Remove error game from 2011 that is coded incorrectly in raw JSON data:
-
 pbp_data <- pbp_data %>% filter(GameID != "2011121101")
+
 nrow(pbp_data)
 # 362263
 
@@ -20,26 +23,34 @@ nrow(pbp_data)
 # what the type of next score is and the drive number only within a half:
 
 find_game_next_score_half <- function(pbp_dataset) {
+  
   # Which rows are the scoring plays:
   score_plays <- which(pbp_dataset$sp == 1 & pbp_dataset$PlayType != "No Play")
-  # Define a helper function that takes in
-  # the current play index, a vector of the
-  # scoring play indices, play-by-play data,
-  # and returns the score type and 
-  # drive number for the next score:
-  find_next_score <- function(play_i,score_plays_i,pbp_df){
+  
+  # Define a helper function that takes in the current play index, 
+  # a vector of the scoring play indices, play-by-play data,
+  # and returns the score type and drive number for the next score:
+  find_next_score <- function(play_i, score_plays_i,pbp_df) {
+    
     # Find the next score index for the current play
     # based on being the first next score index:
     next_score_i <- score_plays_i[which(score_plays_i >= play_i)[1]]
+    
     # If next_score_i is NA (no more scores after current play)
     # or if the next score is in another half,
     # then return No_Score and the current drive number
-    if (is.na(next_score_i) | (pbp_df$qtr[play_i] %in% c(1,2) & pbp_df$qtr[next_score_i] %in% c(3,4,5)) | (pbp_df$qtr[play_i] %in% c(3,4) & pbp_df$qtr[next_score_i] == 5)){
-      score_type <- "No_Score"
-      # Make it the current play index
-      score_drive <- pbp_df$Drive[play_i]
+    if (is.na(next_score_i) | 
+        (pbp_df$qtr[play_i] %in% c(1, 2) & pbp_df$qtr[next_score_i] %in% c(3, 4, 5)) | 
+        (pbp_df$qtr[play_i] %in% c(3, 4) & pbp_df$qtr[next_score_i] == 5)) {
+          
+          score_type <- "No_Score"
+          
+          # Make it the current play index
+          score_drive <- pbp_df$Drive[play_i]
+      
       # Else return the observed next score type and drive number:
     } else {
+      
       # Store the score_drive number
       score_drive <- pbp_df$Drive[next_score_i]
       
@@ -47,144 +58,186 @@ find_game_next_score_half <- function(pbp_dataset) {
       # based on several types of cases for the next score:
       
       # 1: Return TD
-      if (identical(pbp_df$ReturnResult[next_score_i],"Touchdown")){
+      if (identical(pbp_df$ReturnResult[next_score_i], "Touchdown")) {
+        
         # For return touchdowns the current posteam would not have
         # possession at the time of return, so it's flipped:
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Opp_Touchdown"
-        } else{
+          
+        } else {
+          
           score_type <- "Touchdown"
+          
         }
-      } else if (identical(pbp_df$FieldGoalResult[next_score_i],"Good")){
+      } else if (identical(pbp_df$FieldGoalResult[next_score_i], "Good")) {
+        
         # 2: Field Goal
         # Current posteam made FG
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Field_Goal"
+          
           # Opponent made FG
         } else {
+          
           score_type <- "Opp_Field_Goal"
+          
         }
+        
         # 3: Touchdown (returns already counted for)
-      } else if (pbp_df$Touchdown[next_score_i]==1){
+      } else if (pbp_df$Touchdown[next_score_i] == 1) {
+        
         # Current posteam TD
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Touchdown"
-          # Opponent TD
+          
+        # Opponent TD
         } else {
+          
           score_type <- "Opp_Touchdown"
+          
         }
         # 4: Safety (similar to returns)
-      } else if (pbp_df$Safety[next_score_i]==1){
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+      } else if (pbp_df$Safety[next_score_i] == 1) {
+        
+        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Opp_Safety"
-        } else{
-          score_type <- "Safety"
+          
+        } else {
+          
+          score_type <- "Safety" 
+          
         }
         # 5: Extra Points
-      } else if (identical(pbp_df$ExPointResult[next_score_i],"Made")){
+      } else if (identical(pbp_df$ExPointResult[next_score_i], "Made")) {
+        
         # Current posteam Extra Point
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Extra_Point"
+          
           # Opponent Extra Point
         } else {
+          
           score_type <- "Opp_Extra_Point"
+          
         }
         # 6: Two Point Conversions
-      } else if (identical(pbp_df$TwoPointConv[next_score_i],"Success")){
+      } else if (identical(pbp_df$TwoPointConv[next_score_i], "Success")) {
+        
         # Current posteam Two Point Conversion
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Two_Point_Conversion"
-          # Opponent Two Point Conversion
+          
+        # Opponent Two Point Conversion
         } else {
+          
           score_type <- "Opp_Two_Point_Conversion"
+          
         }
+        
         # 7: Defensive Two Point (like returns)
-      } else if(identical(pbp_df$DefTwoPoint[next_score_i],"Success")){
-        if (identical(pbp_df$posteam[play_i],pbp_df$posteam[next_score_i])){
+      } else if (identical(pbp_df$DefTwoPoint[next_score_i], "Success")) {
+        
+        if (identical(pbp_df$posteam[play_i], pbp_df$posteam[next_score_i])) {
+          
           score_type <- "Opp_Defensive_Two_Point"
-        } else{
+          
+        } else {
+          
           score_type <- "Defensive_Two_Point"
+          
         }
+        
         # 8: Errors of some sort so return NA (but shouldn't take place)
       } else {
+        
         score_type <- NA
+        
       }
     }
-    return(as.data.frame(list(Next_Score_Half = score_type,
-                              Drive_Score_Half = score_drive)))
+    
+    return(data.frame(Next_Score_Half = score_type,
+                      Drive_Score_Half = score_drive))
   }
-  # Now apply this helper function to each play:
-  return(bind_rows(lapply(c(1:nrow(pbp_dataset)), find_next_score, 
-                          score_plays_i = score_plays, pbp_df = pbp_dataset)))
+  
+  # Using lapply and then bind_rows is much faster than
+  # using map_dfr() here:
+  lapply(c(1:nrow(pbp_dataset)), find_next_score, 
+         score_plays_i = score_plays, pbp_df = pbp_dataset) %>%
+    bind_rows() %>%
+    return
 }
 
 # Apply to each game (ignore the warning messages here):
 pbp_next_score_half <- map_dfr(unique(pbp_data$GameID), 
-                               function(x) find_game_next_score_half(filter(pbp_data, GameID == x)))
+                               function(x) {
+                                 pbp_data %>%
+                                   filter(GameID == x) %>%
+                                   find_game_next_score_half()
+                               })
 
 # Join to the pbp_data:
 pbp_data_next_score <- bind_cols(pbp_data, pbp_next_score_half)
 
-# Reference level should be No_Score:
+# Create the EP model dataset that only includes plays with basic seven 
+# types of next scoring events along with the following play types:
+# Field Goal, No Play, Pass, Punt, Run, Sack, Spike
 
-pbp_data_next_score$Next_Score_Half <- factor(pbp_data_next_score$Next_Score_Half,
-                                              levels = c("No_Score","Opp_Field_Goal",
-                                                         "Opp_Safety","Opp_Touchdown",
-                                                         "Field_Goal","Safety","Touchdown",
-                                                         "Extra_Point","Opp_Extra_Point",
-                                                         "Two_Point_Conversion",
-                                                         "Opp_Two_Point_Conversion",
-                                                         "Opp_Defensive_Two_Point"))
+pbp_ep_model_data <- pbp_data_next_score %>% 
+  filter(Next_Score_Half %in% c("Opp_Field_Goal", "Opp_Safety", "Opp_Touchdown",
+                                "Field_Goal", "No_Score", "Safety", "Touchdown") & 
+        PlayType %in% c("Field Goal", "No Play", "Pass", "Punt", "Run", "Sack",
+                        "Spike") & is.na(TwoPointConv) & is.na(ExPointResult) &
+        !is.na(down))
 
-# Create the EP model dataset that only includes plays with basic 7 next score types
-# and the following play types: Field Goal, No Play, Pass, Punt, Run, Sack, Spike:
-
-pbp_ep_model_data <- pbp_data_next_score %>% filter(Next_Score_Half %in% c("Opp_Field_Goal",
-                                                                           "Opp_Safety",
-                                                                           "Opp_Touchdown",
-                                                                           "Field_Goal",
-                                                                           "No_Score",
-                                                                           "Safety",
-                                                                           "Touchdown") & 
-                                                      PlayType %in% c("Field Goal",
-                                                                      "No Play",
-                                                                      "Pass",
-                                                                      "Punt",
-                                                                      "Run",
-                                                                      "Sack",
-                                                                      "Spike") &
-                                                      is.na(TwoPointConv) &
-                                                      is.na(ExPointResult) &
-                                                      !is.na(down))
 nrow(pbp_ep_model_data)
 # 304896
 
 # Now adjust and create the model variables:
 pbp_ep_model_data <- pbp_ep_model_data %>%
-  # Drop the unused levels:
-  mutate(Next_Score_Half = factor(Next_Score_Half,
-                                  levels = c("No_Score","Opp_Field_Goal",
-                                              "Opp_Safety","Opp_Touchdown",
-                                              "Field_Goal","Safety","Touchdown")),
+  
+         # Reference level should be No_Score:
+  mutate(Next_Score_Half = fct_relevel(factor(Next_Score_Half), "No_Score"),
+         
          # Create a variable that is time remaining until end of half:
+         # (only working with up to 2016 data so can ignore 2017 time change)
          TimeSecs_Remaining = ifelse(qtr %in% c(1,2), TimeSecs - 1800,
                                       ifelse(qtr == 5, TimeSecs + 900, TimeSecs)),
+         
+         # log transform of yards to go and indicator for two minute warning:
          log_ydstogo = log(ydstogo),
-         Under_TwoMinute_Warning = ifelse(TimeSecs_Remaining < 120,1,0),
+         Under_TwoMinute_Warning = ifelse(TimeSecs_Remaining < 120, 1, 0),
+         
          # Changing down into a factor variable: 
          down = factor(down),
-         # Calculate the drive difference between the score drive and the play drive:
+         
+         # Calculate the drive difference between the next score drive and the 
+         # current play drive:
          Drive_Score_Dist = Drive_Score_Half - Drive,
+         
          # Create a weight column based on difference in drives between play and next score:
-         Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
+         Drive_Score_Dist_W = (max(Drive_Score_Dist) - Drive_Score_Dist) / 
+           (max(Drive_Score_Dist) - min(Drive_Score_Dist)),
          # Create a weight column based on score differential:
-         ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / (max(abs(ScoreDiff)) - min(abs(ScoreDiff))),
+         ScoreDiff_W = (max(abs(ScoreDiff)) - abs(ScoreDiff)) / 
+           (max(abs(ScoreDiff)) - min(abs(ScoreDiff))),
          # Add these weights together and scale again:
          Total_W = Drive_Score_Dist_W + ScoreDiff_W,
-         Total_W_Scaled = (Total_W - min(Total_W)) / (max(Total_W) - min(Total_W)))
+         Total_W_Scaled = (Total_W - min(Total_W)) / 
+           (max(Total_W) - min(Total_W)))
+
+# Save dataset in data folder as pbp_ep_model_data.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+# write_csv(pbp_ep_model_data, "data/pbp_ep_model_data.csv")
 
 # Fit the expected points model:
-
 ep_model <- nnet::multinom(Next_Score_Half ~ TimeSecs_Remaining + yrdline100 + down + log_ydstogo + 
                            GoalToGo + log_ydstogo*down + yrdline100*down + GoalToGo*log_ydstogo + Under_TwoMinute_Warning, 
                            data = pbp_ep_model_data, weights = Total_W_Scaled, maxit = 300)
