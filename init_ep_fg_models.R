@@ -20,7 +20,7 @@ nrow(pbp_data)
 # 362263
 
 #' Define a function that takes in a play-by-play data set and returns
-#' what the type of next score is and the drive number only within a half
+#' what the type of next score is and the drive number only within same half.
 #' @param pbp_dataset Play-by-play dataset with the following columns:
 #' sp - scoring play indicator, PlayType - what type of play, qtr - quarter
 #' of the game, Drive - drive number for the play, ReturnResult - indicates
