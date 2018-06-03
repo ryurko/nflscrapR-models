@@ -19,8 +19,17 @@ pbp_data <- pbp_data %>% filter(GameID != "2011121101")
 nrow(pbp_data)
 # 362263
 
-# Define a function that takes in a play-by-play data set and returns
-# what the type of next score is and the drive number only within a half:
+#' Define a function that takes in a play-by-play data set and returns
+#' what the type of next score is and the drive number only within a half
+#' @param pbp_dataset Play-by-play dataset with the following columns:
+#' sp - scoring play indicator, PlayType - what type of play, qtr - quarter
+#' of the game, Drive - drive number for the play, ReturnResult - indicates
+#' what happened on return type plays, posteam - indicates the possession team
+#' for the play, and columns for ReturnResult, FieldGoalResult, ExPointResult,
+#' TwoPointConv, DefTwoPoint, Touchdown.
+#' @return Data frame with two columns: Next_Score_Half denoting the type of 
+#' the next scoring event occurring within the half of each play and 
+#' Drive_Score_Half denoting the drive number of the next scoring play.
 
 find_game_next_score_half <- function(pbp_dataset) {
   
