@@ -203,10 +203,10 @@ pbp_ep_model_data <- pbp_data_next_score %>%
                                 "Field_Goal", "No_Score", "Safety", "Touchdown") & 
         PlayType %in% c("Field Goal", "No Play", "Pass", "Punt", "Run", "Sack",
                         "Spike") & is.na(TwoPointConv) & is.na(ExPointResult) &
-        !is.na(down))
+        !is.na(down) & !is.na(TimeSecs))
 
 nrow(pbp_ep_model_data)
-# 304896
+# 304805
 
 # Now adjust and create the model variables:
 pbp_ep_model_data <- pbp_ep_model_data %>%
@@ -216,9 +216,9 @@ pbp_ep_model_data <- pbp_ep_model_data %>%
          
          # Create a variable that is time remaining until end of half:
          # (only working with up to 2016 data so can ignore 2017 time change)
-         TimeSecs_Remaining = ifelse(qtr %in% c(1,2), TimeSecs - 1800,
+         TimeSecs_Remaining = as.numeric(ifelse(qtr %in% c(1,2), TimeSecs - 1800,
                                       ifelse(qtr == 5, TimeSecs + 900, 
-                                             TimeSecs)),
+                                             TimeSecs))),
          
          # log transform of yards to go and indicator for two minute warning:
          log_ydstogo = log(ydstogo),
