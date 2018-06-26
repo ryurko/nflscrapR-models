@@ -154,38 +154,45 @@ ep_cv_loso_calibration_results <- ep_model_loso_preds %>%
 # Create a label data frame for the chart:
 ann_text <- data.frame(x = c(.25, 0.75), y = c(0.75, 0.25), 
                        lab = c("More times\nthan expected", "Fewer times\nthan expected"),
-                       next_score_type = factor("No Score"))
+                       next_score_type = factor("No Score (0)"))
 
 # Create the calibration chart:
 ep_cv_loso_calibration_results %>%
   ungroup() %>%
   mutate(next_score_type = fct_relevel(next_score_type,
-                                      "Opp_Field_Goal",
-                                      "Opp_Safety","Opp_Touchdown",
-                                      "Field_Goal","Safety","Touchdown",
-                                      "No_Score"),
+                                       "Opp_Safety", "Opp_Field_Goal", 
+                                       "Opp_Touchdown", "No_Score", "Safety",
+                                       "Field_Goal", "Touchdown"
+                                      ),
          next_score_type = fct_recode(next_score_type,
-                                      "-Field Goal" = "Opp_Field_Goal",
-                                      "-Safety" = "Opp_Safety",
-                                      "-Touchdown" = "Opp_Touchdown",
-                                      "Field Goal" = "Field_Goal",
-                                      "No Score" = "No_Score")) %>%
+                                      "-Field Goal (-3)" = "Opp_Field_Goal",
+                                      "-Safety (-2)" = "Opp_Safety",
+                                      "-Touchdown (-7)" = "Opp_Touchdown",
+                                      "Field Goal (3)" = "Field_Goal",
+                                      "No Score (0)" = "No_Score",
+                                      "Touchdown (7)" = "Touchdown")) %>%
   ggplot() +
   geom_point(aes(x = bin_pred_prob, y = bin_actual_prob, size = n_plays)) +
   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
   geom_abline(slope = 1, intercept = 0, color = "black", lty = 2) +
   coord_equal() +   geom_text(data = ann_text,aes(x = x, y = y, label = lab)) +
-  scale_x_continuous(labels = scales::percent, limits = c(0,1)) + 
-  scale_y_continuous(labels = scales::percent, limits = c(0,1)) + 
-  labs(title = "Leave-One-Season-Out Cross Validation Calibration for\nExpected Points Model by Scoring Event",
-       size = "Number of plays",
-       x = "Estimated Next Score Probability",
-       y = "Observed Next Score Probability") + 
-  #scale_color_brewer(palette = "Spectral", name = NULL, guide = FALSE) +
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(size = "Number of plays",
+       x = "Estimated next score probability",
+       y = "Observed next score probability") + 
   geom_text(data = ann_text, aes(x = x, y = y, label = lab)) +
   theme_bw() + 
-  theme(plot.title = element_text(hjust = 0.5)) +
-  facet_wrap(~ next_score_type, ncol = 3)
+  theme(plot.title = element_text(hjust = 0.5),
+        strip.background = element_blank(),
+        strip.text = element_text(size = 18),
+        axis.title = element_text(size = 18),
+        axis.text.y = element_text(size = 12),
+        axis.text.x = element_text(size = 10, angle = 90),
+        legend.title = element_text(size = 18),
+        legend.text = element_text(size = 16),
+        legend.position = c(1, .05), legend.justification = c(1, 0)) +
+  facet_wrap(~ next_score_type, ncol = 4)
   
 # Calculate the calibration error values:  
 cv_cal_error <- ep_cv_loso_calibration_results %>% 
@@ -443,8 +450,8 @@ ep_fg_cv_loso_calibration_results %>%
   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
   geom_abline(slope = 1, intercept = 0, color = "black", lty = 2) +
   coord_equal() +   geom_text(data = ann_text,aes(x = x, y = y, label = lab)) +
-  scale_x_continuous(labels = scales::percent, limits = c(0,1)) + 
-  scale_y_continuous(labels = scales::percent, limits = c(0,1)) + 
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
   labs(title = "Leave-One-Season-Out Cross Validation Calibration for\nExpected Points Model by Scoring Event",
        size = "Number of plays",
        x = "Estimated Next Score Probability",
