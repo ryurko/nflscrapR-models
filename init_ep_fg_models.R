@@ -10,7 +10,8 @@ library(tidyverse)
 
 library(nflWAR)
 
-# Load data from 2009 to 2016 from the nflscrapR-data repository:
+# Load data from 2009 to 2016 from the nflscrapR-data repository using the
+# get_pbp_data() function from the nflWAR package:
 pbp_data <- get_pbp_data(2009:2016)
 
 # Remove error game from 2011 that is coded incorrectly in raw JSON data:
