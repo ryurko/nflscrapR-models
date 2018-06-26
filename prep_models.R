@@ -4,9 +4,9 @@
 # still be made.
 
 # Load the three models:
-load("~/Documents/nflscrapR-models/ep_model.RData")
-load("~/Documents/nflscrapR-models/fg_model.RData")
-load("~/Documents/nflscrapR-models/wp_model.RData")
+load("ep_model.RData")
+load("fg_model.RData")
+load("wp_model.RData")
 
 # View the object sizes for each (so you know why we deleted what we did):
 sapply(ep_model, object.size)
