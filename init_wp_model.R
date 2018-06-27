@@ -1,20 +1,25 @@
 # File for building WP model
 
 # Access tidyverse:
+# install.packages("tidyverse")
 library(tidyverse)
-library(magrittr)
 
-# Load and stack the play-by-play data:
-pbp_data <-   map_dfr(c(2009:2016), function(x) {
-  suppressMessages(readr::read_csv(paste("https://raw.github.com/ryurko/nflscrapR-data/master/data/season_play_by_play/pbp_",
-                                         x, ".csv", sep = "")))
-})
+# Access nflWAR:
+# install.packages("devtools")
+# devtools::install.packages("ryurko/nflWAR")
+
+library(nflWAR)
+
+# Load data from 2009 to 2016 from the nflscrapR-data repository using the
+# get_pbp_data() function from the nflWAR package:
+pbp_data <- get_pbp_data(2009:2016)
 
 # Remove error game from 2011 that is coded incorrectly in raw JSON data:
-pbp_data <- pbp_data %>% filter(GameID != "2011121101") %>% 
+pbp_data <- pbp_data %>% filter(GameID != "2011121101") %>%
   # Create an indicator for which half it is:
-  mutate(Half_Ind = ifelse(qtr %in% c(1,2),"Half1",
-                           ifelse(qtr %in% c(3,4),"Half2","Overtime")))
+  mutate(Half_Ind = ifelse(qtr %in% c(1, 2), "Half1",
+                           ifelse(qtr %in% c(3, 4), "Half2", "Overtime")),
+         down = factor(down))
 
 # Load and stack the games data:
 games_data <-   map_dfr(c(2009:2016), function(x) {
@@ -31,9 +36,9 @@ win_data <- games_data %>%
   select(GameID, Winner)
   
 # Left join Winner column to pbp_data then create the model dataset: 
-pbp_data_win <- pbp_data %>%
-  mutate(GameID = as.character(GameID))
-pbp_data_win <- pbp_data_win %>% left_join(win_data, by = "GameID") %>%
+pbp_wp_model_data <- pbp_data %>%
+  mutate(GameID = as.character(GameID)) %>%
+  left_join(win_data, by = "GameID") %>%
   # Create an indicator column if the posteam wins the game:
   mutate(Win_Indicator = ifelse(posteam == Winner, 1, 0),
          # Calculate the Expected Score Differential by taking the sum
@@ -45,7 +50,8 @@ pbp_data_win <- pbp_data_win %>% left_join(win_data, by = "GameID") %>%
                                              TimeSecs)),
          # Create a column with the opponents timeouts remaining at
          # the start of the play (opposite of posteam_timeouts_pre):
-         oppteam_timeouts_pre = ifelse(posteam == HomeTeam, AwayTimeouts_Remaining_Pre,
+         oppteam_timeouts_pre = ifelse(posteam == HomeTeam, 
+                                       AwayTimeouts_Remaining_Pre,
                                        HomeTimeouts_Remaining_Pre),
          # Due to NFL errors make a floor at 0 for the timeouts:
          oppteam_timeouts_pre <- ifelse(oppteam_timeouts_pre < 0, 0, 
@@ -68,14 +74,25 @@ pbp_data_win <- pbp_data_win %>% left_join(win_data, by = "GameID") %>%
   # Turn the Half indicator into a factor:
   mutate(Half_Ind = as.factor(Half_Ind))
 
-nrow(pbp_data_win)
-# 335973
+nrow(pbp_wp_model_data)
+# 336066
+
+# Save dataset in data folder as pbp_wp_model_data.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+# write_csv(pbp_wp_model_data, "data/pbp_wp_model_data.csv")
+
+
+# Need to have mgcv installed:
+# install.packages("mgcv")
 
 # Fit the win probability model (takes some time to run):
-wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) + s(TimeSecs_Remaining,by=Half_Ind) + s(ExpScoreDiff_Time_Ratio) + 
-                  Under_TwoMinute_Warning*posteam_timeouts_pre*Half_Ind + 
-                  Under_TwoMinute_Warning*oppteam_timeouts_pre*Half_Ind,
-                               data = pbp_data_win, family = "binomial")
+wp_model <- mgcv::bam(Win_Indicator ~ s(ExpScoreDiff) + 
+                        s(TimeSecs_Remaining, by = Half_Ind) + 
+                        s(ExpScoreDiff_Time_Ratio) + 
+                        Under_TwoMinute_Warning*posteam_timeouts_pre*Half_Ind + 
+                        Under_TwoMinute_Warning*oppteam_timeouts_pre*Half_Ind,
+                        data = pbp_data_win, family = "binomial")
 
 # Save the model (commented out due to file size limit)
 # save(wp_model, file="wp_model.RData")
