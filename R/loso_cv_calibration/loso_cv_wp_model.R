@@ -63,6 +63,12 @@ wp_model_loso_preds <- calc_wp_gam_loso_cv(as.formula("Win_Indicator ~
                                                        Under_TwoMinute_Warning*oppteam_timeouts_pre*Half_Ind"),
                                             wp_model_data = pbp_wp_model_data)
 
+# Save dataset in data folder as wp_model_loso_preds.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+# write_csv(wp_model_loso_preds, "data/wp_model_loso_preds.csv")
+
+
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
 
