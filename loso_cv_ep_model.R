@@ -113,7 +113,7 @@ calc_ep_multinom_loso_cv <- function(ep_formula, weight_type = 3,
             # return from the test_data in the mutate function below but
             # only necessary variables are the predicted probabilities 
             # and the actual events):
-            data.frame(predict(ep_model, newdata = test_data, type="probs")) %>%
+            data.frame(predict(ep_model, newdata = test_data, type = "probs")) %>%
               mutate(Next_Score_Half = test_data$Next_Score_Half) %>%
               return
             
