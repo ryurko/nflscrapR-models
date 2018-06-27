@@ -6,7 +6,7 @@ library(tidyverse)
 
 # Access nflWAR:
 # install.packages("devtools")
-# devtools::install.packages("ryurko/nflWAR")
+# devtools::install_github("ryurko/nflWAR")
 
 library(nflWAR)
 
