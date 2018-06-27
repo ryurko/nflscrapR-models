@@ -7,8 +7,6 @@ library(tidyverse)
 
 # Load the pbp_ep_model_data generated in the init_ep_fg_models.R script:
 # (NOTE this file was not pushed since due to the GitHub file size limit)
-# (For some reason read_csv fails to read in the TimeSecs_Remaining values
-# for 138 plays so we use read.csv instead)
 pbp_ep_model_data <- read.csv("data/pbp_ep_model_data.csv") %>%
   mutate(down = factor(down))
 
