@@ -133,6 +133,12 @@ ep_model_loso_preds <- calc_ep_multinom_loso_cv(as.formula("Next_Score_Half ~
                                                            Under_TwoMinute_Warning"),
                                                 ep_model_data = pbp_ep_model_data)
 
+# Save dataset in data folder as ep_model_loso_preds.csv
+# (NOTE: this dataset is not pushed due to its size exceeding
+# the github limit but will be referenced in other files)
+# write_csv(ep_model_loso_preds, "data/ep_model_loso_preds")
+
+
 # Use the following pipeline to create a dataset used for charting the
 # cross-validation calibration results:
 
@@ -170,7 +176,8 @@ ep_cv_loso_calibration_results %>%
                                       "-Touchdown (-7)" = "Opp_Touchdown",
                                       "Field Goal (3)" = "Field_Goal",
                                       "No Score (0)" = "No_Score",
-                                      "Touchdown (7)" = "Touchdown")) %>%
+                                      "Touchdown (7)" = "Touchdown",
+                                      "Safety (2)" = "Safety")) %>%
   ggplot() +
   geom_point(aes(x = bin_pred_prob, y = bin_actual_prob, size = n_plays)) +
   geom_smooth(aes(x = bin_pred_prob, y = bin_actual_prob), method = "loess") +
