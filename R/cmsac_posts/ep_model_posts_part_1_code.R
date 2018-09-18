@@ -29,14 +29,14 @@ ggplot(bind_rows(carter_data,hgf_data),
 # other two:
 
 # Load and stack the play-by-play data:
-# pbp_data <- rbind(readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2009.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2010.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2011.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2012.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2013.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2014.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2015.csv"),
-#                   readr::read_csv("~/Documents/nflscrapR-data/data/season_play_by_play/pbp_2016.csv"))
+# pbp_data <- rbind(readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2009.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2010.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2011.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2012.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2013.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2014.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2015.csv"),
+#                   readr::read_csv("~/Documents/nflscrapR-data/legacy_data/season_play_by_play/pbp_2016.csv"))
 
 pbp_chart_data <- pbp_data %>% filter(!is.na(ExpPts))  %>% rename(EP = ExpPts, YardsAway = yrdline100) %>%
   mutate(Model = "nflscrapR")

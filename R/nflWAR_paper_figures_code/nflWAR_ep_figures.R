@@ -96,7 +96,7 @@ drive_diff_hist <- pbp_ep_model_data %>%
 # install.packages("cowplot")
 library(cowplot)
 
-plot_grid(score_diff_hist, drive_diff_hist, labels = c("(a)", "(b)"), 
+plot_grid(score_diff_hist, drive_diff_hist, labels = c("A", "B"), 
           ncol = 2, label_size = 18)
 
 # -----------------------------------------------------------------------------

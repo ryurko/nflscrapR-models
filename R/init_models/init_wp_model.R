@@ -23,7 +23,7 @@ pbp_data <- pbp_data %>% filter(GameID != "2011121101") %>%
 
 # Load and stack the games data:
 games_data <-   map_dfr(c(2009:2016), function(x) {
-  suppressMessages(readr::read_csv(paste("https://raw.github.com/ryurko/nflscrapR-data/master/data/season_games/games_",
+  suppressMessages(readr::read_csv(paste("https://raw.github.com/ryurko/nflscrapR-data/master/legacy_data/season_games/games_",
                                          x, ".csv", sep = "")))
 })
 
